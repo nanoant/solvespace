@@ -23,7 +23,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
 
 if(APPLE)
     set(util_LIBRARIES
-        ${APPKIT_LIBRARY})
+        ${APPKIT_LIBRARY}
+        ${IOKIT_LIBRARY})
 endif()
 
 # libslvs

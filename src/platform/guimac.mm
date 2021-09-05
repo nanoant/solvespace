@@ -5,6 +5,10 @@
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
 #import  <AppKit/AppKit.h>
+#include <IOKit/hidsystem/event_status_driver.h>
+#include <IOKit/hidsystem/IOHIDParameter.h>
+#include <IOKit/hidsystem/IOHIDLib.h>
+#import  <IOKit/hid/IOHIDLib.h>
 
 using namespace SolveSpace;
 
@@ -372,10 +376,47 @@ MenuBarRef GetOrCreateMainMenu(bool *unique) {
     double             rotationGestureCurrent;
     Point2d            trackpadPositionShift;
     bool               inTrackpadScrollGesture;
+    bool               hasAppleMagicMouse;
     Platform::Window::Kind kind;
 }
 
 @synthesize acceptsFirstResponder;
+
+static void GetHIDNamesEnumCallback(void *ctx, IOReturn res, void *sender, IOHIDDeviceRef device) {
+    if(res != kIOReturnSuccess) {
+        return;
+    }
+
+    NSNumber *vendor = (__bridge NSNumber *)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDVendorIDKey)) ?: [NSNumber numberWithInt:0];
+    NSNumber *product = (__bridge NSNumber *)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductIDKey)) ?: [NSNumber numberWithInt:0];
+
+    [(__bridge NSMutableArray *)ctx addObject:[NSString stringWithFormat:@"%04lX:%04lX", vendor.unsignedLongValue, product.unsignedLongValue]];
+}
+
+#define RUNLOOPMODE (CFSTR("SSGetHIDNames"))
+#define USB_ID_APPLE_MAGIC_MOUSE   @"05AC:030D"
+#define USB_ID_APPLE_MAGIC_MOUSE_2 @"05AC:0269"
+
++ (NSArray<NSString *> *)getHIDNames {
+    NSDictionary *matchingDict = @{
+        @(kIOHIDDeviceUsagePageKey):@(kHIDPage_GenericDesktop),
+        @(kIOHIDDeviceUsageKey):@(kHIDUsage_GD_Mouse)
+    };
+    NSMutableArray *namesArray = [[NSMutableArray alloc] init];
+    IOHIDManagerRef hidManagerRef = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+    IOHIDManagerRegisterDeviceMatchingCallback(hidManagerRef, GetHIDNamesEnumCallback, (void *)namesArray);
+    IOHIDManagerScheduleWithRunLoop(hidManagerRef, CFRunLoopGetCurrent(), RUNLOOPMODE);
+    IOHIDManagerSetDeviceMatching(hidManagerRef, (__bridge CFDictionaryRef)matchingDict);
+    IOHIDManagerOpen(hidManagerRef, kIOHIDOptionsTypeNone);
+    // Run until all HID manager RUNLOOPMODE events are processed
+    while(CFRunLoopRunInMode(RUNLOOPMODE, 0, TRUE) == kCFRunLoopRunHandledSource) {}
+    IOHIDManagerRegisterDeviceMatchingCallback(hidManagerRef, NULL, NULL);
+    IOHIDManagerUnscheduleFromRunLoop(hidManagerRef, CFRunLoopGetCurrent(), RUNLOOPMODE);
+    IOHIDManagerClose(hidManagerRef, kIOHIDOptionsTypeNone);
+    CFRelease(hidManagerRef);
+
+    return [namesArray copy];
+}
 
 - (id)initWithKind:(Platform::Window::Kind)aKind {
     NSOpenGLPixelFormatAttribute attrs[] = {
@@ -399,6 +440,10 @@ MenuBarRef GetOrCreateMainMenu(bool *unique) {
         inTrackpadScrollGesture = false;
         kind = aKind;
         if(kind == Platform::Window::Kind::TOPLEVEL) {
+            NSArray *hidNames = [SSView getHIDNames];
+            hasAppleMagicMouse = [hidNames containsObject:USB_ID_APPLE_MAGIC_MOUSE] ||
+                                 [hidNames containsObject:USB_ID_APPLE_MAGIC_MOUSE_2];
+
             NSGestureRecognizer *mag = [[NSMagnificationGestureRecognizer alloc] initWithTarget:self
                 action:@selector(magnifyGesture:)];
             [self addGestureRecognizer:mag];
@@ -573,7 +618,7 @@ MenuBarRef GetOrCreateMainMenu(bool *unique) {
     using Platform::MouseEvent;
 
     MouseEvent event = [self convertMouseEvent:nsEvent];
-    if(nsEvent.subtype == NSEventSubtypeTabletPoint && kind == Platform::Window::Kind::TOPLEVEL) {
+    if(nsEvent.subtype == NSEventSubtypeTabletPoint && kind == Platform::Window::Kind::TOPLEVEL && !hasAppleMagicMouse) {
         // This is how Cocoa represents 2 finger trackpad drag gestures, rather than going via
         // NSPanGestureRecognizer which is how you might expect this to work... We complicate this
         // further by also handling shift-two-finger-drag to mean rotate. Fortunately we're using
