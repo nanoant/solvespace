@@ -309,6 +309,7 @@ public:
     List<int> advancedFaces;
     FILE *f;
     int id;
+    std::map<SBezier, int> bezierToEdgeId;
 };
 
 class VectorFileWriter {

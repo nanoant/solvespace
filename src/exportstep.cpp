@@ -4,6 +4,8 @@
 // Copyright 2008-2013 Jonathan Westhues.
 //-----------------------------------------------------------------------------
 #include "solvespace.h"
+#include "srf/surface.h"
+#include <cstdio>
 
 void StepFileWriter::WriteHeader() {
     fprintf(f,
@@ -116,6 +118,14 @@ int StepFileWriter::ExportCurve(SBezier *sb) {
     return ret;
 }
 
+static void PrintCurve(const char *str, SBezier *sb, int id) {
+    fprintf(stderr, "\n%s BEZIER EDGE %d / SCURVE %d\n", str, id, sb->entity);
+    for(int d = 0; d <= sb->deg; d++) {
+        fprintf(stderr, "- %d: %.10f [%a] [%a, %a, %a] (%.10f, %.10f, %.10f)\n",
+            d, sb->weight[d], sb->weight[d], CO(sb->ctrl[d]), CO(sb->ctrl[d]));
+    }
+}
+
 int StepFileWriter::ExportCurveLoop(SBezierLoop *loop, bool inner) {
     ssassert(loop->l.n >= 1, "Expected at least one loop");
 
@@ -133,7 +143,21 @@ int StepFileWriter::ExportCurveLoop(SBezierLoop *loop, bool inner) {
     id += 2;
 
     for(sb = loop->l.First(); sb; sb = loop->l.NextAfter(sb)) {
-        int curveId = ExportCurve(sb);
+        bool reversed = true;
+        auto it = bezierToEdgeId.find(*sb);
+        int curveId = 0;
+        int edgeId = 0;
+        // We do not really expect to find non-reversed edge,
+        // but we still look it up for completeness.
+        if(it == bezierToEdgeId.end()) {
+            reversed = false;
+            it = bezierToEdgeId.find(sb->Reversed());
+        }
+        if(it == bezierToEdgeId.end()) {
+            curveId = ExportCurve(sb);
+        } else {
+            edgeId = it->second;
+        }
 
         int thisFinish;
         if(loop->l.NextAfter(sb) != NULL) {
@@ -146,10 +170,19 @@ int StepFileWriter::ExportCurveLoop(SBezierLoop *loop, bool inner) {
             thisFinish = lastFinish;
         }
 
-        fprintf(f, "#%d=EDGE_CURVE('',#%d,#%d,#%d,%s);\n",
-            id, prevFinish, thisFinish, curveId, ".T.");
-        fprintf(f, "#%d=ORIENTED_EDGE('',*,*,#%d,.T.);\n",
-            id+1, id);
+        if(edgeId == 0) {
+            fprintf(f, "#%d=EDGE_CURVE('',#%d,#%d,#%d,%s);\n",
+                id, prevFinish, thisFinish, curveId, ".T.");
+            edgeId = id;
+            bezierToEdgeId[sb->Reversed()] = edgeId;
+            PrintCurve("STORING REVERSED", sb, edgeId);
+        } else if(reversed) {
+            PrintCurve("REUSING REVERSED", sb, edgeId);
+        } else {
+            PrintCurve("REUSING NON-REVERSED !!!", sb, edgeId);
+        }
+        fprintf(f, "#%d=ORIENTED_EDGE('',*,*,#%d,%s);\n",
+            id+1, edgeId, reversed ? ".F." : ".T.");
 
         int oe = id+1;
         listOfTrims.Add(&oe);

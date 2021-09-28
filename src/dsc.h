@@ -137,6 +137,42 @@ public:
     Vector4 Project4d() const;
 };
 
+#define APPROX_VECTOR_EQ
+
+#ifdef APPROX_VECTOR_EQ
+
+inline bool operator==(const Vector &a, const Vector &b) {
+    return std::abs(a.x - b.x) < 0.0001f && std::abs(a.y - b.y) < 0.0001f && std::abs(a.z - b.z) < 0.0001f;
+}
+
+inline bool Exact(const Vector &a, const Vector &b) {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+inline bool operator!=(const Vector &a, const Vector &b) {
+    return !(a == b);
+}
+
+inline bool operator<(const Vector &a, const Vector &b) {
+    return (a != b) && (a.z < b.z || (a.z == b.z && (a.y < b.y || (a.y == b.y && a.x < b.x))));
+}
+
+#else
+
+inline bool operator==(const Vector &a, const Vector &b) {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+inline bool operator!=(const Vector &a, const Vector &b) {
+    return a.x != b.x || a.y != b.y || a.z != b.z;
+}
+
+inline bool operator<(const Vector &a, const Vector &b) {
+    return a.z < b.z || (a.z == b.z && (a.y < b.y || (a.y == b.y && a.x < b.x)));
+}
+
+#endif
+
 inline double Vector::Element(int i) const {
     switch (i) {
     case 0: return x;

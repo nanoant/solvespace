@@ -5,6 +5,7 @@
 // Copyright 2008-2013 Jonathan Westhues.
 //-----------------------------------------------------------------------------
 #include "../solvespace.h"
+#include "srf/surface.h"
 
 SBezier SBezier::From(Vector4 p0, Vector4 p1) {
     SBezier ret = {};
@@ -74,6 +75,12 @@ void SBezier::Reverse() {
         swap(ctrl[i], ctrl[deg-i]);
         swap(weight[i], weight[deg-i]);
     }
+}
+
+SBezier SBezier::Reversed() const {
+    SBezier ret = *this;
+    ret.Reverse();
+    return ret;
 }
 
 void SBezier::ScaleSelfBy(double s) {

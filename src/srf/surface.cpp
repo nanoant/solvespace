@@ -332,6 +332,7 @@ void SSurface::MakeSectionEdgesInto(SShell *shell, SEdgeList *sel, SBezierList *
             SBezier keep_bef, junk_aft;
             keep_aft.SplitAt(tf, &keep_bef, &junk_aft);
 
+            keep_bef.entity = stb->curve.v;
             sbl->l.Add(&keep_bef);
         } else if(sbl && !sel && !sc->isExact) {
             // We must approximate this trim curve, as piecewise cubic sections.
@@ -394,6 +395,7 @@ void SSurface::MakeSectionEdgesInto(SShell *shell, SEdgeList *sel, SBezierList *
                         continue;
                     } else {
                         // Okay, so use this piece and break.
+                        sb.entity = stb->curve.v;
                         sbl->l.Add(&sb);
                         break;
                     }

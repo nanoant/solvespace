@@ -103,6 +103,7 @@ public:
     void AllIntersectionsWith(const SBezier *sbb, SPointList *spl) const;
     void GetBoundingProjd(Vector u, Vector orig, double *umin, double *umax) const;
     void Reverse();
+    SBezier Reversed() const;
 
     bool IsInPlane(Vector n, double d) const;
     bool IsCircle(Vector axis, Vector *center, double *r) const;
@@ -120,6 +121,53 @@ public:
     static SBezier From(Vector4 p0, Vector4 p1, Vector4 p2);
     static SBezier From(Vector4 p0, Vector4 p1);
 };
+
+#define APPROX_WEIGHT_EQ
+
+inline bool operator<(const SBezier& a, const SBezier& b) {
+    if (a.deg < b.deg) {
+        return true;
+    } else if (a.deg == b.deg) {
+        for (int d = 0; d <= a.deg; d++) {
+            if (a.ctrl[d] < b.ctrl[d]) {
+                return true;
+            }
+            if (a.ctrl[d] == b.ctrl[d]) {
+#ifdef APPROX_WEIGHT_EQ
+                if (a.weight[d] < b.weight[d] && std::abs(a.weight[d] - b.weight[d]) >= 0.0001f) {
+                    return true;
+                }
+                if (std::abs(a.weight[d] - b.weight[d]) < 0.0001f) {
+                    continue;
+                }
+#else
+                if (a.weight[d] < b.weight[d]) {
+                    return true;
+                }
+                if (a.weight[d] == b.weight[d]) {
+                    continue;
+                }
+#endif
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+#ifdef APPROX_VECTOR_EQ
+inline bool Exact(const SBezier& a, const SBezier& b) {
+    if (a.deg == b.deg) {
+        for (int d = 0; d <= a.deg; d++) {
+            if (!Exact(a.ctrl[d], b.ctrl[d]) || a.weight[d] != b.weight[d]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+#endif
 
 class SBezierList {
 public:
