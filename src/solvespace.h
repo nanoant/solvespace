@@ -294,6 +294,19 @@ public:
 
 #include "ttf.h"
 
+}
+
+namespace std {
+    template<>
+    struct hash<SolveSpace::SBezier> {
+        size_t operator()(const SolveSpace::SBezier& a) const {
+            return hash<int>()(a.entity);
+        }
+    };
+}
+
+namespace SolveSpace {
+
 class StepFileWriter {
 public:
     void ExportSurfacesTo(const Platform::Path &filename);
@@ -309,7 +322,11 @@ public:
     List<int> advancedFaces;
     FILE *f;
     int id;
+#ifdef USE_STD_MAP_FOR_BEZIER_MAP
     std::map<SBezier, int> bezierToEdgeId;
+#else
+    std::unordered_map<SBezier, int> bezierToEdgeId;
+#endif
 };
 
 class VectorFileWriter {

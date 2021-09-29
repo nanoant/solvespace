@@ -118,11 +118,16 @@ int StepFileWriter::ExportCurve(SBezier *sb) {
     return ret;
 }
 
-static void PrintCurve(const char *str, SBezier *sb, int id) {
-    fprintf(stderr, "\n%s BEZIER EDGE %d / SCURVE %d\n", str, id, sb->entity);
+static void PrintCurve(const char *str, const SBezier *sb, int id) {
+    fprintf(stderr, "\n[%d] %s BEZIER EDGE %d\n", sb->entity, str, id);
     for(int d = 0; d <= sb->deg; d++) {
+#if 1
         fprintf(stderr, "- %d: %.10f [%a] [%a, %a, %a] (%.10f, %.10f, %.10f)\n",
             d, sb->weight[d], sb->weight[d], CO(sb->ctrl[d]), CO(sb->ctrl[d]));
+#else
+        fprintf(stderr, "- %d: %.4f (%.4f, %.4f, %.4f)\n",
+            d, sb->weight[d], CO(sb->ctrl[d]));
+#endif
     }
 }
 
@@ -174,8 +179,16 @@ int StepFileWriter::ExportCurveLoop(SBezierLoop *loop, bool inner) {
             fprintf(f, "#%d=EDGE_CURVE('',#%d,#%d,#%d,%s);\n",
                 id, prevFinish, thisFinish, curveId, ".T.");
             edgeId = id;
-            bezierToEdgeId[sb->Reversed()] = edgeId;
             PrintCurve("STORING REVERSED", sb, edgeId);
+            for (auto mit : bezierToEdgeId) {
+                if (sb->entity == mit.first.entity) {
+                    PrintCurve("ALREADY EXISTS", &mit.first, mit.second);
+                    fprintf(stderr, "ALREADY < STORING  -> %d\n", mit.first < *sb);
+                    fprintf(stderr, "STORING < ALREADY  -> %d\n", *sb < mit.first);
+                    fprintf(stderr, "FOUND %d", bezierToEdgeId.find(*sb) != bezierToEdgeId.end());
+                }
+            }
+            bezierToEdgeId[sb->Reversed()] = edgeId;
         } else if(reversed) {
             PrintCurve("REUSING REVERSED", sb, edgeId);
         } else {

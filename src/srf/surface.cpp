@@ -323,6 +323,7 @@ void SSurface::MakeSectionEdgesInto(SShell *shell, SEdgeList *sel, SBezierList *
                 sb->ClosestPointTo(stb->start,  &ts);
                 sb->ClosestPointTo(stb->finish, &tf);
             }
+            fprintf(stderr, "SSurface::MakeSectionEdgesInto EXACT %.10f %.10f\n", ts, tf);
             SBezier junk_bef, keep_aft;
             sb->SplitAt(ts, &junk_bef, &keep_aft);
             // In the kept piece, the range that used to go from ts to 1
@@ -395,8 +396,9 @@ void SSurface::MakeSectionEdgesInto(SShell *shell, SEdgeList *sel, SBezierList *
                         continue;
                     } else {
                         // Okay, so use this piece and break.
-                        sb.entity = stb->curve.v;
+                        sb.entity = stb->curve.v + 1000000;
                         sbl->l.Add(&sb);
+                        fprintf(stderr, "SSurface::MakeSectionEdgesInto PWL !!!!!!!!!!!!!!\n");
                         break;
                     }
                 }
